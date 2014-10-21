@@ -3,5 +3,68 @@ if (!file.exists("storm.csv.bz2"))
     download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "storm.csv.bz2", method = "curl")
 }
 
-dataStorm <- read.csv(bzfile("storm.csv.bz2"))
+dataStorm <- read.csv(bzfile("storm.csv.bz2"), na.strings = "NA")
 close(bzfile("storm.csv.bz2"))
+dataStorm$EVTYPE <- as.character(dataStorm$EVTYPE)
+
+
+dataStorm$EVTYPE[grepl("HIGH SURF", dataStorm$EVTYPE, ignore.case = T)] <- "HIGH SURF"
+dataStorm$EVTYPE[grepl("COASTAL FLOOD", dataStorm$EVTYPE, ignore.case = T)] <- "COASTAL FLOOD"
+dataStorm$EVTYPE[grepl("FLASH FLOOD", dataStorm$EVTYPE, ignore.case = T)] <- "FLASH FLOOD"
+dataStorm$EVTYPE[grepl("TSTM", dataStorm$EVTYPE, ignore.case = T)] <- "THUNDERSTORM WIND"
+dataStorm$EVTYPE[grepl("THUNDERSTORM WIND", dataStorm$EVTYPE, ignore.case = T)] <- "THUNDERSTORM WIND"
+dataStorm$EVTYPE[grepl("WINTER STORM", dataStorm$EVTYPE, ignore.case = T)] <- "WINTER STORM"
+dataStorm$EVTYPE[grepl("WINTER WEATHER", dataStorm$EVTYPE, ignore.case = T)] <- "WINTER WEATHER"
+dataStorm$EVTYPE[grepl("URBAN FLOOD", dataStorm$EVTYPE, ignore.case = T)] <- "FLOOD"
+dataStorm$EVTYPE[grepl("DRY", dataStorm$EVTYPE, ignore.case = T)] <- "DROUGHT"
+dataStorm$EVTYPE[grepl("HOT", dataStorm$EVTYPE, ignore.case = T)] <- "HEAT"
+dataStorm$EVTYPE[grepl("HEAT", dataStorm$EVTYPE, ignore.case = T)] <- "HEAT"
+dataStorm$EVTYPE[grepl("HIGH WIND", dataStorm$EVTYPE, ignore.case = T)] <- "HIGH WIND"
+dataStorm$EVTYPE[grepl("COLD", dataStorm$EVTYPE, ignore.case = T)] <- "COLD/WIND CHILL"
+dataStorm$EVTYPE[grepl("BLIZZARD", dataStorm$EVTYPE, ignore.case = T)] <- "BLIZZARD"
+dataStorm$EVTYPE[grepl("HAIL", dataStorm$EVTYPE, ignore.case = T)] <- "HAIL"
+dataStorm$EVTYPE[grepl("HEAVY SNOW", dataStorm$EVTYPE, ignore.case = T)] <- "HEAVY SNOW"
+dataStorm$EVTYPE[grepl("LIGHT SNOW", dataStorm$EVTYPE, ignore.case = T)] <- "LIGHT SNOW"
+
+dfStorm <- dataStorm[, c("EVTYPE", "FATALITIES", "INJURIES", "CROPDMG", "PROPDMG")]
+
+if(!"dplyr" %in% rownames(installed.packages()))
+{
+    install.package("dplyr")
+}
+
+library(dplyr)
+
+dtStorm <- tbl_df(dfStorm)
+grpStorm <- group_by(dtStorm, EVTYPE)
+aggStorm <- summarise(grpStorm, FATALITIES = sum(FATALITIES), INJURIES = sum(INJURIES), CROPDMG = sum(CROPDMG), PROPDMG = sum(PROPDMG))
+
+aggStorm <- mutate(aggStorm, HEALTH_DMG = FATALITIES + INJURIES, ECO_DMG = CROPDMG + PROPDMG)
+healthStorm <- select(aggStorm, EVTYPE, HEALTH_DMG) %>% arrange(desc(HEALTH_DMG))
+ecoStorm <- select(aggStorm, EVTYPE, ECO_DMG) %>% arrange(desc(ECO_DMG))
+
+if(!"ggplot2" %in% rownames(installed.packages()))
+{
+    install.package("ggplot2")
+}
+library(ggplot2)
+
+if(!"scales" %in% rownames(installed.packages()))
+{
+    install.package("scales")
+}
+library(scales)
+
+healthStorm$EVTYPE <- factor(healthStorm$EVTYPE, as.character(healthStorm$EVTYPE))
+
+png("top10_health_dmg.png", 480, 480)
+pHealth <- ggplot(healthStorm[1:10, ], aes(y = HEALTH_DMG, fill = HEALTH_DMG))
+pHealth + geom_bar(aes(x = EVTYPE), stat = "identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + labs(title = "Top 10 Heath DMG by Event Type", x = "Event Type", y = "Fatalities and Injuries") + scale_fill_continuous(guide = guide_legend(title = "Faltalities and Injuries", reverse = T), labels = comma) + scale_y_continuous(labels = comma)
+dev.off()
+
+ecoStorm$EVTYPE <- factor(ecoStorm$EVTYPE, as.character(ecoStorm$EVTYPE))
+
+png("top10_eco_dmg.png", 480, 480)
+pEco <- ggplot(ecoStorm[1:10, ], aes(y = ECO_DMG, fill = ECO_DMG))
+pEco + geom_bar(aes(x = EVTYPE), stat = "identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + labs(title = "Top 10 Economic DMG by Event Type", x = "Event Type", y = "Crop DMG and Property DMG") + scale_fill_continuous(guide = guide_legend(title = "Crop DMG and Property DMG", reverse = T), labels = comma) + scale_y_continuous(labels = comma)
+dev.off()

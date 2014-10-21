@@ -1,0 +1,7 @@
+if (!file.exists("storm.csv.bz2"))
+{
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "storm.csv.bz2", method = "curl")
+}
+
+dataStorm <- read.csv(bzfile("storm.csv.bz2"))
+close(bzfile("storm.csv.bz2"))
